@@ -13,12 +13,12 @@ script:
   - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 50
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 50
   - sudo apt-get install libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev
-  - mkdir $TRAVIS_BUILD_DIR/extern
-  - pushd $TRAVIS_BUILD_DIR/extern
+  - EXTERN_DIR=$TRAVIS_BUILD_DIR/extern
+  - [[ ! -d $EXTERN_DIR ]] && mkdir $EXTERN_DIR
+  - pushd $EXTERN_DIR
   - [[ ! -d rocksdb ]] && git clone https://github.com/facebook/rocksdb.git
   - cd rocksdb && make shared_lib
   - popd
-  - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$TRAVIS_BUILD_DIR/extern/rocksdb"
-  - export DYLD_LIBRARY_PATH="$LD_LIBRARY_PATH"
+  - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$EXTERN_DIR/rocksdb"
   - cargo update -p clippy
   - make
