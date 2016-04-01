@@ -5,7 +5,6 @@ rust:
 
 os:
   - linux
-  - osx
 
 script:
   - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
@@ -13,14 +12,13 @@ script:
   - sudo apt-get install -y -qq gcc-4.8 g++-4.8 zlib1g-dev libbz2-dev libsnappy-dev libjemalloc-dev
   - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 50
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 50
-  - sudo apt-get install libgflags-dev
-  - sudo apt-get install libsnappy-dev 
-  - sudo apt-get install zlib1g-dev 
-  - sudo apt-get install libbz2-dev
+  - sudo apt-get install libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev
   - mkdir $TRAVIS_BUILD_DIR/extern
-  - cd $TRAVIS_BUILD_DIR/extern && git clone git@github.com:facebook/rocksdb.git && cd rocksdb && make shared_lib
-  - sudo cp -rf $TRAVIS_BUILD_DIR/extern/rocksdb/include/rocksdb /usr/local/include 
-  - sudo cp -f $TRAVIS_BUILD_DIR/extern/rocksdb/librocksdb.so /usr/local/lib 
-  - export LD_LIBRARY_PATH=/usr/local/lib
-
+  - pushd $TRAVIS_BUILD_DIR/extern
+  - [[ ! -d rocksdb ]] && git clone https://github.com/facebook/rocksdb.git
+  - cd rocksdb && make shared_lib
+  - popd
+  - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$TRAVIS_BUILD_DIR/extern/rocksdb"
+  - export DYLD_LIBRARY_PATH="$LD_LIBRARY_PATH"
+  - cargo update -p clippy
   - make
