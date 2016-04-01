@@ -50,7 +50,7 @@ pub struct Server<T: RaftStoreRouter> {
     // addr -> Token
     peers: HashMap<String, Token>,
 
-    raft: Arc<RwLock<T>>,
+    raft_router: Arc<RwLock<T>>,
 
     store: StoreHandler,
 }
@@ -64,7 +64,7 @@ impl<T: RaftStoreRouter> Server<T> {
     pub fn new(event_loop: &mut EventLoop<Self>,
                listener: TcpListener,
                storage: Storage,
-               raft: Arc<RwLock<T>>)
+               raft_router: Arc<RwLock<T>>)
                -> Result<Server<T>> {
         try!(event_loop.register(&listener,
                                  SERVER_TOKEN,
@@ -81,7 +81,7 @@ impl<T: RaftStoreRouter> Server<T> {
             conns: HashMap::new(),
             conn_token_counter: FIRST_CUSTOM_TOKEN.as_usize(),
             peers: HashMap::new(),
-            raft: raft,
+            raft_router: raft_router,
             store: store_handler,
         };
 
@@ -175,7 +175,7 @@ impl<T: RaftStoreRouter> Server<T> {
         let msg_type = msg.get_msg_type();
         match msg_type {
             MessageType::Raft => {
-                if let Err(e) = self.raft.rl().send_raft_msg(msg.take_raft()) {
+                if let Err(e) = self.raft_router.rl().send_raft_msg(msg.take_raft()) {
                     // Should we return error to let outer close this connection later?
                     error!("send raft message for token {:?} with msg id {} err {:?}",
                            token,
@@ -204,7 +204,7 @@ impl<T: RaftStoreRouter> Server<T> {
         });
 
         let uuid = msg.get_header().get_uuid().to_vec();
-        if let Err(e) = self.raft.rl().send_command(msg, cb) {
+        if let Err(e) = self.raft_router.rl().send_command(msg, cb) {
             // send error, reply an error response.
             warn!("send command for token {:?} with msg id {} err {:?}",
                   token,

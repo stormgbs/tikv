@@ -65,16 +65,16 @@ impl From<Error> for EngineError {
 /// RaftKv is a storage engine base on RaftKvServer.
 pub struct RaftKv<T: PdClient + 'static, Trans: Transport + 'static> {
     node: Node<T, Trans>,
-    raft: Arc<RwLock<ServerRaftStoreRouter>>,
+    router: Arc<RwLock<ServerRaftStoreRouter>>,
 }
 
 impl<T: PdClient, Trans: Transport> RaftKv<T, Trans> {
     /// Create a RaftKv using specified configuration.
     pub fn new(node: Node<T, Trans>) -> RaftKv<T, Trans> {
-        let raft = node.raft_store_router();
+        let router = node.raft_store_router();
         RaftKv {
             node: node,
-            raft: raft,
+            router: router,
         }
     }
 
@@ -82,10 +82,10 @@ impl<T: PdClient, Trans: Transport> RaftKv<T, Trans> {
         let (tx, rx) = mpsc::channel();
         let uuid = req.get_header().get_uuid().to_vec();
         let l = req.get_requests().len();
-        try!(self.raft.rl().send_command(req,
-                                         Box::new(move |r| {
-                                             tx.send(r).map_err(::raftstore::errors::other)
-                                         })));
+        try!(self.router.rl().send_command(req,
+                                           box move |r| {
+                                               tx.send(r).map_err(::raftstore::errors::other)
+                                           }));
 
         // Only when tx is closed will recv return Err, which should never happen.
         let mut resp = rx.recv().unwrap();
