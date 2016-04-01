@@ -19,12 +19,12 @@ use super::pd::TestPdClient;
 use super::pd_ask::run_ask_loop;
 
 pub struct ChannelTransport {
-    pub handlers: HashMap<u64, Arc<RwLock<ServerRaftStoreRouter>>>,
+    pub routers: HashMap<u64, Arc<RwLock<ServerRaftStoreRouter>>>,
 }
 
 impl ChannelTransport {
     pub fn new() -> Arc<RwLock<ChannelTransport>> {
-        Arc::new(RwLock::new(ChannelTransport { handlers: HashMap::new() }))
+        Arc::new(RwLock::new(ChannelTransport { routers: HashMap::new() }))
     }
 }
 
@@ -32,7 +32,7 @@ impl Transport for ChannelTransport {
     fn send(&self, msg: raft_serverpb::RaftMessage) -> Result<()> {
         let to_store = msg.get_to_peer().get_store_id();
 
-        match self.handlers.get(&to_store) {
+        match self.routers.get(&to_store) {
             Some(h) => h.rl().send_raft_msg(msg),
             _ => Err(other(format!("missing sender for store {}", to_store))),
         }
@@ -68,7 +68,7 @@ impl Simulator for NodeCluster {
         assert!(node_id == 0 || node_id == node.id());
 
         let node_id = node.id();
-        self.trans.wl().handlers.insert(node_id, node.raft_store_router());
+        self.trans.wl().routers.insert(node_id, node.raft_store_router());
         self.nodes.insert(node_id, node);
 
         node_id
@@ -76,7 +76,7 @@ impl Simulator for NodeCluster {
 
     fn stop_node(&mut self, node_id: u64) {
         let node = self.nodes.remove(&node_id).unwrap();
-        self.trans.wl().handlers.remove(&node_id).unwrap();
+        self.trans.wl().routers.remove(&node_id).unwrap();
 
         drop(node);
     }
@@ -87,8 +87,8 @@ impl Simulator for NodeCluster {
 
     fn call_command(&self, request: RaftCmdRequest, timeout: Duration) -> Result<RaftCmdResponse> {
         let store_id = request.get_header().get_peer().get_store_id();
-        let handler = self.trans.rl().handlers.get(&store_id).cloned().unwrap();
-        let ch = handler.rl().ch.clone();
+        let router = self.trans.rl().routers.get(&store_id).cloned().unwrap();
+        let ch = router.rl().ch.clone();
         msg::call_command(&ch, request, timeout)
     }
 

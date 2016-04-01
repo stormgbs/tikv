@@ -68,9 +68,9 @@ fn build_raftkv(matches: &Matches,
 
     let mut node = Node::new(&cfg, pd_client, trans.clone());
     node.start(engine).unwrap();
-    let raft_handler = node.raft_store_router();
+    let raft_router = node.raft_store_router();
 
-    (create_raft_storage(node).unwrap(), raft_handler)
+    (create_raft_storage(node).unwrap(), raft_router)
 }
 
 fn get_store_path(matches: &Matches) -> String {
@@ -89,8 +89,8 @@ fn get_store_path(matches: &Matches) -> String {
 
 fn run_local_server(listener: TcpListener, store: Storage) {
     let mut event_loop = create_event_loop().unwrap();
-    let raft_handler = Arc::new(RwLock::new(MockRaftStoreRouter));
-    let mut svr = Server::new(&mut event_loop, listener, store, raft_handler).unwrap();
+    let raft_router = Arc::new(RwLock::new(MockRaftStoreRouter));
+    let mut svr = Server::new(&mut event_loop, listener, store, raft_router).unwrap();
     svr.run(&mut event_loop).unwrap();
 }
 
@@ -98,10 +98,10 @@ fn run_raft_server(listener: TcpListener, matches: &Matches) {
     let mut event_loop = create_event_loop().unwrap();
     let ch = SendCh::new(event_loop.channel());
 
-    let (store, raft_handler) = build_raftkv(&matches,
-                                             ch,
-                                             format!("{}", listener.local_addr().unwrap()));
-    let mut svr = Server::new(&mut event_loop, listener, store, raft_handler).unwrap();
+    let (store, raft_router) = build_raftkv(&matches,
+                                            ch,
+                                            format!("{}", listener.local_addr().unwrap()));
+    let mut svr = Server::new(&mut event_loop, listener, store, raft_router).unwrap();
     svr.run(&mut event_loop).unwrap();
 }
 
