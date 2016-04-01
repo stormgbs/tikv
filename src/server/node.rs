@@ -6,12 +6,12 @@ use rocksdb::DB;
 use pd::{INVALID_ID, PdClient, Error as PdError};
 use kvproto::raft_serverpb::StoreIdent;
 use kvproto::metapb;
-use raftstore::store::{self, Msg, Store, Config as StoreConfig, keys, Peekable, Transport,
-                       StoreSendCh};
+use raftstore::store::{self, Msg, Store, Config as StoreConfig, keys, Peekable, Transport, SendCh};
 use super::{Result, other};
 use util::HandyRwLock;
 use super::config::Config;
 use storage::{Storage, Engine, RaftKv};
+use super::transport::ServerRaftHandler;
 
 pub fn create_raft_storage<T, Trans>(node: Node<T, Trans>) -> Result<Storage>
     where T: PdClient + 'static,
@@ -28,10 +28,13 @@ pub struct Node<T: PdClient + 'static, Trans: Transport + 'static> {
     cluster_id: u64,
     store: metapb::Store,
     store_cfg: StoreConfig,
+
     store_handle: Option<thread::JoinHandle<()>>,
+    ch: Option<SendCh>,
+
+    trans: Arc<RwLock<Trans>>,
 
     pd_client: Arc<RwLock<T>>,
-    trans: Arc<RwLock<Trans>>,
 }
 
 impl<T, Trans> Node<T, Trans>
@@ -57,6 +60,7 @@ impl<T, Trans> Node<T, Trans>
             store_handle: None,
             pd_client: pd_client,
             trans: trans.clone(),
+            ch: None,
         }
     }
 
@@ -99,8 +103,11 @@ impl<T, Trans> Node<T, Trans>
         self.store.get_id()
     }
 
-    pub fn get_trans(&self) -> Arc<RwLock<Trans>> {
-        self.trans.clone()
+    pub fn get_raft_handler(&self) -> Arc<RwLock<ServerRaftHandler>> {
+        // We must start Store thread OK before using this raft handler.
+        // TODO: should we return an error?
+        let ch = self.ch.clone().unwrap();
+        Arc::new(RwLock::new(ServerRaftHandler::new(self.store.get_id(), ch)))
     }
 
     // check store, return store id for the engine.
@@ -184,7 +191,7 @@ impl<T, Trans> Node<T, Trans>
                                         self.trans.clone(),
                                         pd_client));
         let ch = store.get_sendch();
-        self.trans.wl().set_sendch(StoreSendCh::new(store_id, ch));
+        self.ch = Some(ch);
 
         let h = thread::spawn(move || {
             if let Err(e) = store.run(&mut event_loop) {
@@ -197,9 +204,9 @@ impl<T, Trans> Node<T, Trans>
     }
 
     fn stop_store(&mut self, store_id: u64) -> Result<()> {
-        match self.trans.wl().remove_sendch() {
+        match self.ch.take() {
             None => return Err(other(format!("stop invalid store with id {}", store_id))),
-            Some(ch) => try!(ch.ch.send(Msg::Quit)),
+            Some(ch) => try!(ch.send(Msg::Quit)),
         }
 
         // Handler must exist here.

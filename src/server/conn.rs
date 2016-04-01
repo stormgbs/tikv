@@ -9,8 +9,8 @@ use bytes::{Buf, MutBuf, ByteBuf, MutByteBuf, alloc};
 use kvproto::msgpb::Message;
 use super::{Result, ConnData};
 use super::server::Server;
-use raftstore::store::Transport;
 use util::codec::rpc;
+use super::transport::RaftHandler;
 
 pub struct Conn {
     pub sock: TcpStream,
@@ -68,14 +68,14 @@ impl Conn {
         }
     }
 
-    pub fn reregister<T: Transport>(&mut self,
-                                    event_loop: &mut EventLoop<Server<T>>)
-                                    -> Result<()> {
+    pub fn reregister<T: RaftHandler>(&mut self,
+                                      event_loop: &mut EventLoop<Server<T>>)
+                                      -> Result<()> {
         try!(event_loop.reregister(&self.sock, self.token, self.interest, PollOpt::edge()));
         Ok(())
     }
 
-    pub fn read<T: Transport>(&mut self, _: &mut EventLoop<Server<T>>) -> Result<Vec<ConnData>> {
+    pub fn read<T: RaftHandler>(&mut self, _: &mut EventLoop<Server<T>>) -> Result<Vec<ConnData>> {
         let mut bufs = vec![];
 
         loop {
@@ -127,7 +127,7 @@ impl Conn {
         Ok(buf.remaining())
     }
 
-    pub fn write<T: Transport>(&mut self, event_loop: &mut EventLoop<Server<T>>) -> Result<()> {
+    pub fn write<T: RaftHandler>(&mut self, event_loop: &mut EventLoop<Server<T>>) -> Result<()> {
         while !self.res.is_empty() {
             let remaining = try!(self.write_buf());
 
@@ -144,10 +144,10 @@ impl Conn {
         self.reregister(event_loop)
     }
 
-    pub fn append_write_buf<T: Transport>(&mut self,
-                                          event_loop: &mut EventLoop<Server<T>>,
-                                          msg: ConnData)
-                                          -> Result<()> {
+    pub fn append_write_buf<T: RaftHandler>(&mut self,
+                                            event_loop: &mut EventLoop<Server<T>>,
+                                            msg: ConnData)
+                                            -> Result<()> {
         // Now we just push data to a write buffer and register writable for later writing.
         // Later we can write data directly, if meet WOUNDBLOCK error(don't write all data OK),
         // we can register writable at that time.
