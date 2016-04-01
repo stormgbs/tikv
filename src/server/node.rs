@@ -11,7 +11,7 @@ use super::{Result, other};
 use util::HandyRwLock;
 use super::config::Config;
 use storage::{Storage, Engine, RaftKv};
-use super::transport::ServerRaftHandler;
+use super::transport::ServerRaftStoreRouter;
 
 pub fn create_raft_storage<T, Trans>(node: Node<T, Trans>) -> Result<Storage>
     where T: PdClient + 'static,
@@ -28,7 +28,6 @@ pub struct Node<T: PdClient + 'static, Trans: Transport + 'static> {
     cluster_id: u64,
     store: metapb::Store,
     store_cfg: StoreConfig,
-
     store_handle: Option<thread::JoinHandle<()>>,
     ch: Option<SendCh>,
 
@@ -103,11 +102,11 @@ impl<T, Trans> Node<T, Trans>
         self.store.get_id()
     }
 
-    pub fn get_raft_handler(&self) -> Arc<RwLock<ServerRaftHandler>> {
+    pub fn raft_store_router(&self) -> Arc<RwLock<ServerRaftStoreRouter>> {
         // We must start Store thread OK before using this raft handler.
-        // TODO: should we return an error?
+        // TODO: should we return an error? or
         let ch = self.ch.clone().unwrap();
-        Arc::new(RwLock::new(ServerRaftHandler::new(self.store.get_id(), ch)))
+        Arc::new(RwLock::new(ServerRaftStoreRouter::new(self.store.get_id(), ch)))
     }
 
     // check store, return store id for the engine.

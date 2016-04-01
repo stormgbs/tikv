@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use server::Node;
-use server::transport::{ServerRaftHandler, RaftHandler};
+use server::transport::{ServerRaftStoreRouter, RaftStoreRouter};
 use raftstore::store::Transport;
 use raftstore::errors::Error as RaftServerError;
 use util::HandyRwLock;
@@ -65,13 +65,13 @@ impl From<Error> for EngineError {
 /// RaftKv is a storage engine base on RaftKvServer.
 pub struct RaftKv<T: PdClient + 'static, Trans: Transport + 'static> {
     node: Node<T, Trans>,
-    raft: Arc<RwLock<ServerRaftHandler>>,
+    raft: Arc<RwLock<ServerRaftStoreRouter>>,
 }
 
 impl<T: PdClient, Trans: Transport> RaftKv<T, Trans> {
     /// Create a RaftKv using specified configuration.
     pub fn new(node: Node<T, Trans>) -> RaftKv<T, Trans> {
-        let raft = node.get_raft_handler();
+        let raft = node.raft_store_router();
         RaftKv {
             node: node,
             raft: raft,

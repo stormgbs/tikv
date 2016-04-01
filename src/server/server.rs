@@ -16,13 +16,13 @@ use super::{Result, other};
 use util::HandyRwLock;
 use storage::Storage;
 use super::kv::StoreHandler;
-use super::transport::RaftHandler;
+use super::transport::RaftStoreRouter;
 
 const SERVER_TOKEN: Token = Token(1);
 const FIRST_CUSTOM_TOKEN: Token = Token(1024);
 const INVALID_TOKEN: Token = Token(0);
 
-pub fn create_event_loop<T: RaftHandler>() -> Result<EventLoop<Server<T>>> {
+pub fn create_event_loop<T: RaftStoreRouter>() -> Result<EventLoop<Server<T>>> {
     let event_loop = try!(EventLoop::new());
     Ok(event_loop)
 }
@@ -33,7 +33,7 @@ pub fn bind(addr: &str) -> Result<TcpListener> {
     Ok(listener)
 }
 
-pub struct Server<T: RaftHandler> {
+pub struct Server<T: RaftStoreRouter> {
     listener: TcpListener,
     // We use HashMap instead of common use mio slab to avoid token reusing.
     // In our raft server, a client with token 1 sends a raft command, we will
@@ -55,7 +55,7 @@ pub struct Server<T: RaftHandler> {
     store: StoreHandler,
 }
 
-impl<T: RaftHandler> Server<T> {
+impl<T: RaftStoreRouter> Server<T> {
     // Create a server with already initialized engines.
     // Now some tests use 127.0.0.1:0 but we need real listening
     // address in Node before creating the Server, so we first
@@ -310,7 +310,7 @@ impl<T: RaftHandler> Server<T> {
     }
 }
 
-impl<T: RaftHandler> Handler for Server<T> {
+impl<T: RaftStoreRouter> Handler for Server<T> {
     type Timeout = Msg;
     type Message = Msg;
 

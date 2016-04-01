@@ -10,7 +10,7 @@ use util::HandyRwLock;
 use super::{SendCh as ServerSendCh, Msg, ConnData};
 
 
-pub trait RaftHandler {
+pub trait RaftStoreRouter {
     // Send RaftMessage to local store.
     fn send_raft_msg(&self, msg: RaftMessage) -> RaftStoreResult<()>;
 
@@ -18,14 +18,14 @@ pub trait RaftHandler {
     fn send_command(&self, req: RaftCmdRequest, cb: Callback) -> RaftStoreResult<()>;
 }
 
-pub struct ServerRaftHandler {
+pub struct ServerRaftStoreRouter {
     pub store_id: u64,
     pub ch: SendCh,
 }
 
-impl ServerRaftHandler {
-    pub fn new(store_id: u64, ch: SendCh) -> ServerRaftHandler {
-        ServerRaftHandler {
+impl ServerRaftStoreRouter {
+    pub fn new(store_id: u64, ch: SendCh) -> ServerRaftStoreRouter {
+        ServerRaftStoreRouter {
             store_id: store_id,
             ch: ch,
         }
@@ -39,7 +39,7 @@ impl ServerRaftHandler {
     }
 }
 
-impl RaftHandler for ServerRaftHandler {
+impl RaftStoreRouter for ServerRaftStoreRouter {
     fn send_raft_msg(&self, msg: RaftMessage) -> RaftStoreResult<()> {
         try!(self.check_store(msg.get_to_peer().get_store_id()));
 
@@ -105,10 +105,10 @@ impl<T: PdClient> Transport for ServerTransport<T> {
 }
 
 
-// MockRaftHandler is used for Memory and RocksDB to pass compile.
-pub struct MockRaftHandler;
+// MockRaftStoreRouter is used for Memory and RocksDB to pass compile.
+pub struct MockRaftStoreRouter;
 
-impl RaftHandler for MockRaftHandler {
+impl RaftStoreRouter for MockRaftStoreRouter {
     fn send_raft_msg(&self, _: RaftMessage) -> RaftStoreResult<()> {
         unimplemented!();
     }

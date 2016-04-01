@@ -22,7 +22,7 @@ use tikv::storage::{Storage, Dsn};
 use tikv::util::{self, logger};
 use tikv::server::{DEFAULT_LISTENING_ADDR, SendCh, Server, Node, Config, bind, create_event_loop,
                    create_raft_storage};
-use tikv::server::{ServerTransport, ServerRaftHandler, MockRaftHandler};
+use tikv::server::{ServerTransport, ServerRaftStoreRouter, MockRaftStoreRouter};
 use tikv::pd::new_rpc_client;
 
 const MEM_DSN: &'static str = "mem";
@@ -46,7 +46,7 @@ fn initial_log(matches: &Matches) {
 fn build_raftkv(matches: &Matches,
                 ch: SendCh,
                 addr: String)
-                -> (Storage, Arc<RwLock<ServerRaftHandler>>) {
+                -> (Storage, Arc<RwLock<ServerRaftStoreRouter>>) {
     let pd_addr = matches.opt_str("pd").expect("raftkv needs pd client");
     let pd_client = Arc::new(RwLock::new(new_rpc_client(&pd_addr).unwrap()));
     let id = matches.opt_str("I").expect("raftkv requires cluster id");
@@ -68,7 +68,7 @@ fn build_raftkv(matches: &Matches,
 
     let mut node = Node::new(&cfg, pd_client, trans.clone());
     node.start(engine).unwrap();
-    let raft_handler = node.get_raft_handler();
+    let raft_handler = node.raft_store_router();
 
     (create_raft_storage(node).unwrap(), raft_handler)
 }
@@ -89,7 +89,7 @@ fn get_store_path(matches: &Matches) -> String {
 
 fn run_local_server(listener: TcpListener, store: Storage) {
     let mut event_loop = create_event_loop().unwrap();
-    let raft_handler = Arc::new(RwLock::new(MockRaftHandler));
+    let raft_handler = Arc::new(RwLock::new(MockRaftStoreRouter));
     let mut svr = Server::new(&mut event_loop, listener, store, raft_handler).unwrap();
     svr.run(&mut event_loop).unwrap();
 }

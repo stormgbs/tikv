@@ -14,12 +14,12 @@ use kvproto::raft_serverpb;
 use tikv::raftstore::{Result, other};
 use tikv::util::HandyRwLock;
 use tikv::server::Config as ServerConfig;
-use tikv::server::transport::{ServerRaftHandler, RaftHandler};
+use tikv::server::transport::{ServerRaftStoreRouter, RaftStoreRouter};
 use super::pd::TestPdClient;
 use super::pd_ask::run_ask_loop;
 
 pub struct ChannelTransport {
-    pub handlers: HashMap<u64, Arc<RwLock<ServerRaftHandler>>>,
+    pub handlers: HashMap<u64, Arc<RwLock<ServerRaftStoreRouter>>>,
 }
 
 impl ChannelTransport {
@@ -68,7 +68,7 @@ impl Simulator for NodeCluster {
         assert!(node_id == 0 || node_id == node.id());
 
         let node_id = node.id();
-        self.trans.wl().handlers.insert(node_id, node.get_raft_handler());
+        self.trans.wl().handlers.insert(node_id, node.raft_store_router());
         self.nodes.insert(node_id, node);
 
         node_id

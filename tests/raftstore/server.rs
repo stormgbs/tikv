@@ -98,7 +98,7 @@ impl Simulator for ServerCluster {
         let mut node = Node::new(&cfg, self.pd_client.clone(), trans.clone());
 
         node.start(engine).unwrap();
-        let raft_handler = node.get_raft_handler();
+        let raft_handler = node.raft_store_router();
 
         assert!(node_id == 0 || node_id == node.id());
         let node_id = node.id();
